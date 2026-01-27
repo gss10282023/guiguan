@@ -1,0 +1,14 @@
+{
+  "name": "@guiguan/shared",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "pnpm exec tsc -p tsconfig.json --noEmit",
+    "lint": "pnpm exec eslint . --max-warnings=0",
+    "typecheck": "pnpm exec tsc -p tsconfig.json --noEmit",
+    "test": "echo \"(shared) no tests yet\""
+  }
+}
