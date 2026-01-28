@@ -14,6 +14,7 @@ COPY packages/shared/tsconfig.json packages/shared/
 COPY packages/shared/src packages/shared/src
 
 RUN pnpm install --frozen-lockfile
+RUN pnpm --filter @guiguan/api exec prisma generate
 RUN pnpm --filter @guiguan/api build
 
 EXPOSE 3001
