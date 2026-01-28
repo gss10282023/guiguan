@@ -10,6 +10,9 @@ type BeforeInstallPromptEvent = Event & {
 function isStandalone() {
   type NavigatorWithStandalone = Navigator & { standalone?: boolean };
 
+  if (typeof window === 'undefined') return false;
+  if (typeof navigator === 'undefined') return false;
+
   return (
     window.matchMedia?.('(display-mode: standalone)').matches ||
     // iOS Safari
@@ -18,6 +21,7 @@ function isStandalone() {
 }
 
 function isIos() {
+  if (typeof navigator === 'undefined') return false;
   const ua = navigator.userAgent.toLowerCase();
   return /iphone|ipad|ipod/.test(ua);
 }
