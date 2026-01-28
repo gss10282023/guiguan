@@ -1,0 +1,51 @@
+'use client';
+
+import { useCallback } from 'react';
+
+import { useAuth } from './auth';
+
+export function useApi() {
+  const { accessToken, refreshAccessToken } = useAuth();
+
+  const apiFetch = useCallback(
+    async (input: RequestInfo | URL, init?: RequestInit) => {
+      const headers = new Headers(init?.headers);
+      if (accessToken) headers.set('authorization', `Bearer ${accessToken}`);
+
+      const res = await fetch(input, { ...init, headers });
+      if (res.status !== 401) return res;
+
+      const refreshed = await refreshAccessToken();
+      if (!refreshed) return res;
+
+      const retryHeaders = new Headers(init?.headers);
+      retryHeaders.set('authorization', `Bearer ${refreshed}`);
+      return fetch(input, { ...init, headers: retryHeaders });
+    },
+    [accessToken, refreshAccessToken],
+  );
+
+  const apiFetchJson = useCallback(
+    async <T,>(input: RequestInfo | URL, init?: RequestInit): Promise<T> => {
+      const res = await apiFetch(input, init);
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        throw new Error(text || `Request failed: ${res.status}`);
+      }
+      return (await res.json()) as T;
+    },
+    [apiFetch],
+  );
+
+  return { apiFetch, apiFetchJson };
+}
+
+export function formatLocalDateTime(value: string | Date): string {
+  const date = typeof value === 'string' ? new Date(value) : value;
+  return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(date);
+}
+
+export function formatDateTimeInTimeZone(value: string | Date, timeZone: string): string {
+  const date = typeof value === 'string' ? new Date(value) : value;
+  return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short', timeZone }).format(date);
+}

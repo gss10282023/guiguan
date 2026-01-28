@@ -7,12 +7,16 @@
     "start": "next start -p 3003",
     "lint": "next lint",
     "typecheck": "pnpm exec tsc -p tsconfig.json --noEmit",
-    "test": "echo \"(admin) no tests yet\""
+    "test": "echo \"(admin) no tests yet\"",
+    "e2e": "playwright test"
   },
   "dependencies": {
     "@guiguan/shared": "workspace:*",
     "next": "^14.2.5",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.41.2"
   }
 }

@@ -68,6 +68,8 @@ beforeAll(async () => {
   process.env['JWT_SECRET'] = process.env['JWT_SECRET'] ?? 'test_secret';
   process.env['JWT_ACCESS_TTL_SECONDS'] = process.env['JWT_ACCESS_TTL_SECONDS'] ?? '900';
   process.env['JWT_REFRESH_TTL_SECONDS'] = process.env['JWT_REFRESH_TTL_SECONDS'] ?? '2592000';
+  process.env['AUTH_LOGIN_RATE_LIMIT_MAX'] = '3';
+  process.env['AUTH_LOGIN_RATE_LIMIT_WINDOW_MS'] = '60000';
 
   app = buildApp({ logger: false });
   await app.ready();
@@ -91,6 +93,7 @@ describe('auth + rbac', () => {
 
     const res = await request(app.server)
       .post('/auth/login')
+      .set('x-forwarded-for', '203.0.113.10')
       .send({ email: 'teacher@example.com', password: 'password123' })
       .expect(200);
 
@@ -112,6 +115,7 @@ describe('auth + rbac', () => {
 
     await request(app.server)
       .post('/auth/login')
+      .set('x-forwarded-for', '203.0.113.11')
       .send({ email: 'teacher@example.com', password: 'wrong' })
       .expect(401);
   });
@@ -131,6 +135,7 @@ describe('auth + rbac', () => {
 
     const login = await request(app.server)
       .post('/auth/login')
+      .set('x-forwarded-for', '203.0.113.12')
       .send({ email: 'teacher@example.com', password: 'password123' })
       .expect(200);
 
@@ -156,6 +161,7 @@ describe('auth + rbac', () => {
 
     const login = await request(app.server)
       .post('/auth/login')
+      .set('x-forwarded-for', '203.0.113.13')
       .send({ email: 'teacher@example.com', password: 'password123' })
       .expect(200);
 
@@ -179,5 +185,38 @@ describe('auth + rbac', () => {
 
     await request(app.server).get('/me').set('Authorization', `Bearer ${token}`).expect(401);
   });
-});
 
+  it('login triggers rate limiting after repeated failures', async () => {
+    await createUser({
+      role: UserRole.TEACHER,
+      email: 'teacher@example.com',
+      password: 'password123',
+    });
+
+    const ip = '203.0.113.99';
+
+    await request(app.server)
+      .post('/auth/login')
+      .set('x-forwarded-for', ip)
+      .send({ email: 'teacher@example.com', password: 'wrong' })
+      .expect(401);
+
+    await request(app.server)
+      .post('/auth/login')
+      .set('x-forwarded-for', ip)
+      .send({ email: 'teacher@example.com', password: 'wrong' })
+      .expect(401);
+
+    await request(app.server)
+      .post('/auth/login')
+      .set('x-forwarded-for', ip)
+      .send({ email: 'teacher@example.com', password: 'wrong' })
+      .expect(401);
+
+    await request(app.server)
+      .post('/auth/login')
+      .set('x-forwarded-for', ip)
+      .send({ email: 'teacher@example.com', password: 'wrong' })
+      .expect(429);
+  });
+});

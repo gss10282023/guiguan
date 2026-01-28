@@ -8,10 +8,26 @@ type LoginBody = {
   password: string;
 };
 
+function readIntEnv(varName: string, fallback: number): number {
+  const raw = process.env[varName];
+  if (!raw) return fallback;
+  const value = Number(raw);
+  return Number.isFinite(value) ? value : fallback;
+}
+
 const authRoutes: FastifyPluginAsync = async (fastify) => {
+  const loginRateLimitMax = readIntEnv('AUTH_LOGIN_RATE_LIMIT_MAX', 10);
+  const loginRateLimitWindowMs = readIntEnv('AUTH_LOGIN_RATE_LIMIT_WINDOW_MS', 60_000);
+
   fastify.post<{ Body: LoginBody }>(
     '/login',
     {
+      config: {
+        rateLimit: {
+          max: loginRateLimitMax,
+          timeWindow: loginRateLimitWindowMs,
+        },
+      },
       schema: {
         body: {
           type: 'object',

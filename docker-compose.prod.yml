@@ -1,0 +1,121 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: guiguan
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d guiguan"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+  api:
+    image: guiguan-api:local
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    environment:
+      HOST: 0.0.0.0
+      PORT: 3001
+      LOG_LEVEL: info
+      READY_CHECK_TIMEOUT_MS: 1000
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/guiguan?schema=public
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: change_me_in_prod
+      JWT_ACCESS_TTL_SECONDS: 900
+      JWT_REFRESH_TTL_SECONDS: 2592000
+      JWT_REFRESH_COOKIE_NAME: refreshToken
+      AUTH_LOGIN_RATE_LIMIT_MAX: 10
+      AUTH_LOGIN_RATE_LIMIT_WINDOW_MS: 60000
+      NODE_ENV: production
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "3001:3001"
+    command: ["sh", "-lc", "pnpm --filter @guiguan/api db:migrate:deploy && pnpm --filter @guiguan/api start"]
+
+  student:
+    image: guiguan-student:local
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+      args:
+        APP_NAME: student
+    restart: unless-stopped
+    environment:
+      API_BASE_URL: http://api:3001
+      NODE_ENV: production
+    depends_on:
+      - api
+    ports:
+      - "3000:3000"
+
+  teacher:
+    image: guiguan-teacher:local
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+      args:
+        APP_NAME: teacher
+    restart: unless-stopped
+    environment:
+      API_BASE_URL: http://api:3001
+      NODE_ENV: production
+    depends_on:
+      - api
+    ports:
+      - "3002:3002"
+
+  admin:
+    image: guiguan-admin:local
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+      args:
+        APP_NAME: admin
+    restart: unless-stopped
+    environment:
+      API_BASE_URL: http://api:3001
+      NODE_ENV: production
+    depends_on:
+      - api
+    ports:
+      - "3003:3003"
+
+  reverse-proxy:
+    profiles: ["proxy"]
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    depends_on:
+      - api
+      - student
+      - teacher
+      - admin
+    ports:
+      - "8080:80"
+    volumes:
+      - ./deploy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+
+volumes:
+  postgres_data:
+  redis_data:

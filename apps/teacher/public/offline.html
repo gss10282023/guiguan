@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#8b5cf6" />
+    <title>离线 - Teacher</title>
+    <style>
+      body {
+        margin: 0;
+        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+        color: #111827;
+        background: #ffffff;
+      }
+      .wrap {
+        max-width: 720px;
+        margin: 0 auto;
+        padding: 48px 16px;
+      }
+      .card {
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        padding: 16px;
+      }
+      .muted {
+        color: #6b7280;
+      }
+      button {
+        margin-top: 12px;
+        border: 1px solid #111827;
+        background: #111827;
+        color: #ffffff;
+        border-radius: 10px;
+        padding: 10px 14px;
+        font: inherit;
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="card">
+        <h1 style="margin: 0 0 8px 0">当前处于离线状态</h1>
+        <p class="muted" style="margin: 0">
+          请检查网络连接，然后重试。你仍然可以打开已缓存的静态资源（不会白屏）。
+        </p>
+        <button type="button" onclick="location.reload()">重试</button>
+      </div>
+    </div>
+  </body>
+</html>

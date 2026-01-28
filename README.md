@@ -39,6 +39,7 @@ pnpm -w dev
 ## 端口
 
 - API: http://localhost:3001/health
+- API Ready: http://localhost:3001/ready
 - Student: http://localhost:3000
 - Teacher: http://localhost:3002
 - Admin: http://localhost:3003
@@ -65,4 +66,37 @@ pnpm -w lint
 pnpm -w typecheck
 pnpm -w build
 pnpm --filter @guiguan/api test
+
+# Step 10（Student PWA MVP）端到端验收
+# 首次运行需要下载浏览器：
+pnpm --filter @guiguan/student exec playwright install chromium
+pnpm --filter @guiguan/student e2e
+
+# Step 11（Teacher PWA MVP）端到端验收
+pnpm --filter @guiguan/teacher exec playwright install chromium
+pnpm --filter @guiguan/teacher e2e
+
+# Step 12（Admin Web MVP）端到端验收
+pnpm --filter @guiguan/admin exec playwright install chromium
+pnpm --filter @guiguan/admin e2e
 ```
+
+## 后台任务：课结束自动扣课时（Step 7）
+
+```bash
+# 跑一次（用于手工验收/调试）
+pnpm --filter @guiguan/api job:complete-ended-sessions
+
+# 常驻 worker（默认每 60s 扫描一次）
+pnpm --filter @guiguan/api worker:dev
+```
+
+## 部署（Step 14）
+
+本地模拟生产一键启动：
+
+```bash
+docker compose -f docker-compose.prod.yml up -d --build
+```
+
+更多细节见 `DEPLOY.md`。

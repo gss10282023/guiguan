@@ -24,6 +24,22 @@ enum Currency {
   USD
 }
 
+enum Subject {
+  GENERAL
+  ENGLISH
+  CHINESE
+  MATHEMATICS
+  CHEMISTRY
+  PHYSICS
+  BIOLOGY
+  ECONOMICS
+  BUSINESS_STUDIES
+  LEGAL_STUDIES
+  MODERN_HISTORY
+  ANCIENT_HISTORY
+  GEOGRAPHY
+}
+
 enum SessionStatus {
   SCHEDULED
   CANCELLED
@@ -81,6 +97,7 @@ model User {
   createdSessions  Session[] @relation("CreatedByAdmin")
 
   hourLedgerEntries       HourLedgerEntry[] @relation("StudentLedger")
+  teacherLedgerEntries    HourLedgerEntry[] @relation("TeacherLedger")
   requestedChangeRequests ChangeRequest[]   @relation("RequestedByUser")
   decidedChangeRequests   ChangeRequest[]   @relation("DecidedByAdmin")
 
@@ -113,6 +130,7 @@ model TeacherStudentRate {
   id              String   @id @default(cuid())
   teacherId       String
   studentId       String
+  subject         Subject  @default(GENERAL)
   hourlyRateCents Int
   currency        Currency
   createdAt       DateTime @default(now())
@@ -121,15 +139,17 @@ model TeacherStudentRate {
   teacher User @relation("TeacherRates", fields: [teacherId], references: [id], onDelete: Cascade)
   student User @relation("StudentRates", fields: [studentId], references: [id], onDelete: Cascade)
 
-  @@unique([teacherId, studentId])
+  @@unique([teacherId, studentId, subject])
   @@index([teacherId])
   @@index([studentId])
+  @@index([subject])
 }
 
 model Session {
   id                String        @id @default(cuid())
   teacherId         String
   studentId         String
+  subject           Subject       @default(GENERAL)
   startAtUtc        DateTime
   endAtUtc          DateTime
   classTimeZone     String
@@ -156,15 +176,18 @@ model Session {
 model HourLedgerEntry {
   id         String           @id @default(cuid())
   studentId  String
+  teacherId  String?
   deltaUnits Int
   reason     HourLedgerReason
   sessionId  String?          @unique
   createdAt  DateTime         @default(now())
 
   student User     @relation("StudentLedger", fields: [studentId], references: [id], onDelete: Restrict)
+  teacher User?    @relation("TeacherLedger", fields: [teacherId], references: [id], onDelete: SetNull)
   session Session? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
 
   @@index([studentId])
+  @@index([teacherId])
 }
 
 model ChangeRequest {

@@ -1,14 +1,29 @@
 import type { ReactNode } from 'react';
+import type { Metadata, Viewport } from 'next';
 
-export const metadata = {
-  title: 'Student',
+import './globals.css';
+import Header from './_components/header';
+import Providers from './providers';
+
+export const metadata: Metadata = {
+  title: 'Summa Academy 桂冠书院 - Student',
+  applicationName: 'Summa Academy 桂冠书院 - Student',
+  manifest: '/manifest.webmanifest',
+};
+
+export const viewport: Viewport = {
+  themeColor: '#0ea5e9',
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="zh-CN">
-      <body>{children}</body>
+      <body>
+        <Providers>
+          <Header />
+          {children}
+        </Providers>
+      </body>
     </html>
   );
 }
-

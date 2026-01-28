@@ -1,0 +1,22 @@
+FROM node:20-alpine
+
+WORKDIR /app
+
+RUN corepack enable
+
+ENV NEXT_TELEMETRY_DISABLED=1
+
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json tsconfig.base.json ./
+COPY packages/shared packages/shared
+COPY apps/student apps/student
+COPY apps/teacher apps/teacher
+COPY apps/admin apps/admin
+
+RUN pnpm install --frozen-lockfile
+
+ARG APP_NAME
+ENV APP_NAME=${APP_NAME}
+
+RUN pnpm --filter @guiguan/${APP_NAME} build
+
+CMD ["sh", "-lc", "pnpm --filter @guiguan/${APP_NAME} start"]

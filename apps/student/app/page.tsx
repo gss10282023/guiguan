@@ -1,6 +1,5 @@
-import { appTitle } from '@guiguan/shared';
+import { redirect } from 'next/navigation';
 
 export default function Page() {
-  return <main>{appTitle('Student')}</main>;
+  redirect('/calendar');
 }
-
