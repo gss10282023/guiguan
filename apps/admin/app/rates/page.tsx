@@ -36,7 +36,8 @@ type RateListItem = {
   studentName: string | null;
   studentEmail: string | null;
   subject: Subject;
-  hourlyRateCents: number;
+  studentHourlyRateCents: number;
+  teacherHourlyWageCents: number;
   currency: Currency;
   updatedAt: string;
 };
@@ -57,6 +58,34 @@ const SUBJECT_OPTIONS: { value: Subject; label: string }[] = [
   { value: 'GEOGRAPHY', label: 'Geography（地理）' },
 ];
 
+function parseHourlyRateToCents(value: string): number | null {
+  const raw = value.trim();
+  if (!raw) return null;
+  const match = /^(\d+)(?:\.(\d{0,2}))?$/.exec(raw);
+  if (!match) return null;
+
+  const integerRaw = match[1];
+  if (!integerRaw) return null;
+  const integerPart = BigInt(integerRaw);
+
+  const fractionalPart = (match[2] ?? '').padEnd(2, '0');
+  const fractionalValue = BigInt(fractionalPart);
+
+  const cents = integerPart * 100n + fractionalValue;
+  if (cents <= 0n) return null;
+  if (cents > BigInt(Number.MAX_SAFE_INTEGER)) return null;
+  return Number(cents);
+}
+
+function formatCurrencyFromCents(cents: number, currency: string): string {
+  const amount = cents / 100;
+  try {
+    return new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(amount);
+  } catch {
+    return `${currency} ${amount.toFixed(2)}`;
+  }
+}
+
 export default function RatesPage() {
   const { hydrated, accessToken } = useRequireAdmin();
   const { apiFetchJson } = useApi();
@@ -72,7 +101,8 @@ export default function RatesPage() {
   const [teacherId, setTeacherId] = useState('');
   const [studentId, setStudentId] = useState('');
   const [subject, setSubject] = useState<Subject>('GENERAL');
-  const [hourlyRateCents, setHourlyRateCents] = useState(10000);
+  const [studentHourlyRate, setStudentHourlyRate] = useState('100');
+  const [teacherHourlyWage, setTeacherHourlyWage] = useState('100');
   const [currency, setCurrency] = useState<Currency>('AUD');
 
   const refreshRates = useCallback(async () => {
@@ -150,8 +180,15 @@ export default function RatesPage() {
                   return;
                 }
 
-                if (!Number.isFinite(hourlyRateCents) || hourlyRateCents <= 0) {
-                  setError('hourlyRateCents 必须为正整数');
+                const studentHourlyRateCents = parseHourlyRateToCents(studentHourlyRate);
+                if (studentHourlyRateCents === null) {
+                  setError('学生收费必须为正数（最多两位小数，单位：元/刀/小时）');
+                  return;
+                }
+
+                const teacherHourlyWageCents = parseHourlyRateToCents(teacherHourlyWage);
+                if (teacherHourlyWageCents === null) {
+                  setError('老师工资必须为正数（最多两位小数，单位：元/刀/小时）');
                   return;
                 }
 
@@ -160,7 +197,7 @@ export default function RatesPage() {
                 await apiFetchJson('/admin/rates', {
                   method: 'PUT',
                   headers: { 'content-type': 'application/json' },
-                  body: JSON.stringify({ teacherId, studentId, subject, hourlyRateCents, currency }),
+                  body: JSON.stringify({ teacherId, studentId, subject, studentHourlyRateCents, teacherHourlyWageCents, currency }),
                 });
                 setSuccess('已保存费率');
                 await refreshRates();
@@ -202,17 +239,29 @@ export default function RatesPage() {
                   </option>
                 ))}
               </select>
-            </label>
+              </label>
 
-            <label className="field">
-              <span className="muted">hourlyRateCents</span>
-              <input
-                data-testid="rate-hourlyRateCents"
+              <label className="field">
+                <span className="muted">学生收费（元/刀/小时）</span>
+                <input
+                  data-testid="rate-studentHourlyRate"
                   type="number"
-                  min={1}
-                  step={1}
-                  value={hourlyRateCents}
-                  onChange={(e) => setHourlyRateCents(Number(e.target.value))}
+                  min={0}
+                  step={0.01}
+                  value={studentHourlyRate}
+                  onChange={(e) => setStudentHourlyRate(e.target.value)}
+                />
+              </label>
+
+              <label className="field">
+                <span className="muted">老师工资（元/刀/小时，用于工资计算）</span>
+                <input
+                  data-testid="rate-teacherHourlyWage"
+                  type="number"
+                  min={0}
+                  step={0.01}
+                  value={teacherHourlyWage}
+                  onChange={(e) => setTeacherHourlyWage(e.target.value)}
                 />
               </label>
 
@@ -272,13 +321,24 @@ export default function RatesPage() {
 
                     <div className="row" style={{ justifyContent: 'space-between', flexWrap: 'wrap' }}>
                       <div>
-                        <span className="muted">费率：</span>
-                        <strong>
-                          {rate.currency} {rate.hourlyRateCents}
-                        </strong>
-                        <span className="muted" style={{ marginLeft: 6 }}>
-                          / hour
-                        </span>
+                        <div>
+                          <span className="muted">学生收费：</span>
+                          <strong>
+                            {formatCurrencyFromCents(rate.studentHourlyRateCents, rate.currency)}
+                          </strong>
+                          <span className="muted" style={{ marginLeft: 6 }}>
+                            / hour
+                          </span>
+                        </div>
+                        <div>
+                          <span className="muted">老师工资：</span>
+                          <strong>
+                            {formatCurrencyFromCents(rate.teacherHourlyWageCents, rate.currency)}
+                          </strong>
+                          <span className="muted" style={{ marginLeft: 6 }}>
+                            / hour
+                          </span>
+                        </div>
                       </div>
 
                       <button
@@ -290,7 +350,8 @@ export default function RatesPage() {
                           setTeacherId(rate.teacherId);
                           setStudentId(rate.studentId);
                           setSubject(rate.subject);
-                          setHourlyRateCents(rate.hourlyRateCents);
+                          setStudentHourlyRate((rate.studentHourlyRateCents / 100).toFixed(2));
+                          setTeacherHourlyWage((rate.teacherHourlyWageCents / 100).toFixed(2));
                           setCurrency(rate.currency);
                           window.scrollTo({ top: 0, behavior: 'smooth' });
                         }}

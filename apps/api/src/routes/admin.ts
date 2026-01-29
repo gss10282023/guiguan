@@ -78,12 +78,58 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
       _sum: { deltaUnits: true },
     });
 
+    const groupedByTeacher = await fastify.prisma.hourLedgerEntry.groupBy({
+      by: ['teacherId'],
+      where: { studentId: student.id },
+      _sum: { deltaUnits: true },
+    });
+
+    const unassignedUnits = groupedByTeacher.find((g) => g.teacherId === null)?._sum.deltaUnits ?? 0;
+
+    const unitsByTeacherId = new Map<string, number>();
+    for (const group of groupedByTeacher) {
+      if (!group.teacherId) continue;
+      unitsByTeacherId.set(group.teacherId, group._sum.deltaUnits ?? 0);
+    }
+
+    const teacherIds = Array.from(unitsByTeacherId.keys());
+
+    const teachers =
+      teacherIds.length > 0
+        ? await fastify.prisma.user.findMany({
+            where: { id: { in: teacherIds }, orgId: actor.orgId, role: UserRole.TEACHER },
+            select: { id: true, teacherProfile: { select: { displayName: true } } },
+          })
+        : [];
+
+    const teacherNameById = new Map<string, string | null>(
+      teachers.map((teacher) => [teacher.id, teacher.teacherProfile?.displayName ?? null]),
+    );
+
+    const byTeacher = teacherIds
+      .map((teacherId) => ({
+        teacherId,
+        teacherName: teacherNameById.get(teacherId) ?? null,
+        remainingUnits: unitsByTeacherId.get(teacherId) ?? 0,
+      }))
+      .sort((a, b) => (a.teacherName ?? a.teacherId).localeCompare(b.teacherName ?? b.teacherId));
+
     const ledgerEntries = await fastify.prisma.hourLedgerEntry.findMany({
       where: { studentId: student.id },
       orderBy: { createdAt: 'desc' },
       take: 50,
-      select: { id: true, deltaUnits: true, reason: true, sessionId: true, createdAt: true },
+      select: {
+        id: true,
+        deltaUnits: true,
+        reason: true,
+        sessionId: true,
+        teacherId: true,
+        createdAt: true,
+        teacher: { select: { teacherProfile: { select: { displayName: true } } } },
+      },
     });
+
+    const remainingUnits = remaining._sum.deltaUnits ?? 0;
 
     return {
       id: student.id,
@@ -91,12 +137,19 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
       displayName: student.studentProfile?.displayName ?? null,
       timeZone: student.studentProfile?.timeZone ?? null,
       createdAt: student.createdAt.toISOString(),
-      remainingUnits: remaining._sum.deltaUnits ?? 0,
+      remainingUnits,
+      hoursByTeacher: {
+        totalRemainingUnits: remainingUnits,
+        unassignedUnits,
+        byTeacher,
+      },
       ledgerEntries: ledgerEntries.map((entry) => ({
         id: entry.id,
         deltaUnits: entry.deltaUnits,
         reason: entry.reason,
         sessionId: entry.sessionId ?? null,
+        teacherId: entry.teacherId ?? null,
+        teacherName: entry.teacher?.teacherProfile?.displayName ?? null,
         createdAt: entry.createdAt.toISOString(),
       })),
     };
@@ -267,7 +320,8 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
     teacherId: z.string().min(1),
     studentId: z.string().min(1),
     subject: z.nativeEnum(Subject).optional(),
-    hourlyRateCents: z.number().int().positive(),
+    studentHourlyRateCents: z.number().int().positive(),
+    teacherHourlyWageCents: z.number().int().positive(),
     currency: z.nativeEnum(Currency),
   });
 
@@ -321,7 +375,8 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
         teacherId: true,
         studentId: true,
         subject: true,
-        hourlyRateCents: true,
+        studentHourlyRateCents: true,
+        teacherHourlyWageCents: true,
         currency: true,
         updatedAt: true,
         teacher: { select: { email: true, teacherProfile: { select: { displayName: true } } } },
@@ -338,7 +393,8 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
       studentName: rate.student.studentProfile?.displayName ?? null,
       studentEmail: rate.student.email,
       subject: rate.subject,
-      hourlyRateCents: rate.hourlyRateCents,
+      studentHourlyRateCents: rate.studentHourlyRateCents,
+      teacherHourlyWageCents: rate.teacherHourlyWageCents,
       currency: rate.currency,
       updatedAt: rate.updatedAt.toISOString(),
     }));
@@ -386,12 +442,14 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
         teacherId: teacher.id,
         studentId: student.id,
         subject,
-        hourlyRateCents: parsedBody.data.hourlyRateCents,
+        studentHourlyRateCents: parsedBody.data.studentHourlyRateCents,
+        teacherHourlyWageCents: parsedBody.data.teacherHourlyWageCents,
         currency: parsedBody.data.currency,
       },
       update: {
         subject,
-        hourlyRateCents: parsedBody.data.hourlyRateCents,
+        studentHourlyRateCents: parsedBody.data.studentHourlyRateCents,
+        teacherHourlyWageCents: parsedBody.data.teacherHourlyWageCents,
         currency: parsedBody.data.currency,
       },
     });
@@ -407,7 +465,8 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
           teacherId: teacher.id,
           studentId: student.id,
           subject,
-          hourlyRateCents: parsedBody.data.hourlyRateCents,
+          studentHourlyRateCents: parsedBody.data.studentHourlyRateCents,
+          teacherHourlyWageCents: parsedBody.data.teacherHourlyWageCents,
           currency: parsedBody.data.currency,
         },
       },
@@ -418,17 +477,26 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
       teacherId: rate.teacherId,
       studentId: rate.studentId,
       subject: rate.subject,
-      hourlyRateCents: rate.hourlyRateCents,
+      studentHourlyRateCents: rate.studentHourlyRateCents,
+      teacherHourlyWageCents: rate.teacherHourlyWageCents,
       currency: rate.currency,
     });
   });
 
   const addHoursParamsSchema = z.object({ id: z.string().min(1) });
   const addHoursBodySchema = z.object({
-    deltaUnits: z.number().int().positive(),
+    deltaUnits: z.number().int(),
     reason: z.enum([HourLedgerReason.PURCHASE, HourLedgerReason.ADJUSTMENT] as const),
     teacherId: z.string().min(1).optional(),
-  });
+  })
+    .refine((data) => data.deltaUnits !== 0, {
+      path: ['deltaUnits'],
+      message: '`deltaUnits` cannot be 0',
+    })
+    .refine((data) => data.reason !== HourLedgerReason.PURCHASE || data.deltaUnits > 0, {
+      path: ['deltaUnits'],
+      message: '`deltaUnits` must be positive for PURCHASE',
+    });
 
   fastify.post(
     '/students/:id/hours',
@@ -643,7 +711,8 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
         classTimeZone: true,
         status: true,
         consumesUnits: true,
-        rateCentsSnapshot: true,
+        studentHourlyRateCentsSnapshot: true,
+        teacherHourlyWageCentsSnapshot: true,
         currencySnapshot: true,
         teacher: { select: { email: true, teacherProfile: { select: { displayName: true } } } },
         student: { select: { email: true, studentProfile: { select: { displayName: true } } } },
@@ -664,7 +733,8 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
       classTimeZone: session.classTimeZone,
       status: session.status,
       consumesUnits: session.consumesUnits,
-      rateCentsSnapshot: session.rateCentsSnapshot,
+      studentHourlyRateCentsSnapshot: session.studentHourlyRateCentsSnapshot,
+      teacherHourlyWageCentsSnapshot: session.teacherHourlyWageCentsSnapshot,
       currencySnapshot: session.currencySnapshot,
     }));
   });
@@ -705,7 +775,7 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
           subject: parsedBody.data.subject,
         },
       },
-      select: { id: true, hourlyRateCents: true, currency: true },
+      select: { id: true, studentHourlyRateCents: true, teacherHourlyWageCents: true, currency: true },
     });
     if (!rate) {
       return reply.code(404).send({ message: 'Rate not found' });
@@ -734,7 +804,8 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
         endAtUtc: parsedBody.data.endAtUtc,
         classTimeZone: parsedBody.data.classTimeZone,
         consumesUnits: parsedBody.data.consumesUnits,
-        rateCentsSnapshot: rate.hourlyRateCents,
+        studentHourlyRateCentsSnapshot: rate.studentHourlyRateCents,
+        teacherHourlyWageCentsSnapshot: rate.teacherHourlyWageCents,
         currencySnapshot: rate.currency,
         createdByAdminId: actor.id,
       },
@@ -755,7 +826,8 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
           endAtUtc: session.endAtUtc.toISOString(),
           classTimeZone: session.classTimeZone,
           consumesUnits: session.consumesUnits,
-          rateCentsSnapshot: session.rateCentsSnapshot,
+          studentHourlyRateCentsSnapshot: session.studentHourlyRateCentsSnapshot,
+          teacherHourlyWageCentsSnapshot: session.teacherHourlyWageCentsSnapshot,
           currencySnapshot: session.currencySnapshot,
         },
       },
@@ -815,27 +887,37 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
     const nextStartAtUtc = parsedBody.data.startAtUtc ?? existing.startAtUtc;
     const nextEndAtUtc = parsedBody.data.endAtUtc ?? existing.endAtUtc;
 
+    const nextClassTimeZone = parsedBody.data.classTimeZone ?? existing.classTimeZone;
+    const nextConsumesUnits = parsedBody.data.consumesUnits ?? existing.consumesUnits;
+
     const nextStatus = parsedBody.data.status ?? existing.status;
-    if (nextStatus !== SessionStatus.SCHEDULED && nextStatus !== SessionStatus.CANCELLED) {
+    if (
+      nextStatus !== SessionStatus.SCHEDULED &&
+      nextStatus !== SessionStatus.CANCELLED &&
+      nextStatus !== SessionStatus.COMPLETED
+    ) {
       return reply.code(400).send({ message: 'Invalid status transition' });
     }
 
-    const conflict = await fastify.prisma.session.findFirst({
-      where: {
-        id: { not: existing.id },
-        teacherId: existing.teacherId,
-        status: SessionStatus.SCHEDULED,
-        startAtUtc: { lt: nextEndAtUtc },
-        endAtUtc: { gt: nextStartAtUtc },
-      },
-      select: { id: true },
-    });
+    if (nextStatus === SessionStatus.SCHEDULED) {
+      const conflict = await fastify.prisma.session.findFirst({
+        where: {
+          id: { not: existing.id },
+          teacherId: existing.teacherId,
+          status: SessionStatus.SCHEDULED,
+          startAtUtc: { lt: nextEndAtUtc },
+          endAtUtc: { gt: nextStartAtUtc },
+        },
+        select: { id: true },
+      });
 
-    if (conflict) {
-      return reply.code(409).send({ message: 'Teacher time conflict', conflictSessionId: conflict.id });
+      if (conflict) {
+        return reply.code(409).send({ message: 'Teacher time conflict', conflictSessionId: conflict.id });
+      }
     }
 
-    let nextRateCentsSnapshot: number | undefined;
+    let nextStudentHourlyRateCentsSnapshot: number | undefined;
+    let nextTeacherHourlyWageCentsSnapshot: number | undefined;
     let nextCurrencySnapshot: Currency | undefined;
     if (nextSubject !== existing.subject) {
       const rate = await fastify.prisma.teacherStudentRate.findUnique({
@@ -846,42 +928,81 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
             subject: nextSubject,
           },
         },
-        select: { hourlyRateCents: true, currency: true },
+        select: { studentHourlyRateCents: true, teacherHourlyWageCents: true, currency: true },
       });
       if (!rate) return reply.code(404).send({ message: 'Rate not found' });
-      nextRateCentsSnapshot = rate.hourlyRateCents;
+      nextStudentHourlyRateCentsSnapshot = rate.studentHourlyRateCents;
+      nextTeacherHourlyWageCentsSnapshot = rate.teacherHourlyWageCents;
       nextCurrencySnapshot = rate.currency;
     }
 
-    const updated = await fastify.prisma.session.update({
-      where: { id: existing.id },
-      data: {
-        subject: nextSubject,
-        startAtUtc: nextStartAtUtc,
-        endAtUtc: nextEndAtUtc,
-        classTimeZone: parsedBody.data.classTimeZone ?? existing.classTimeZone,
-        consumesUnits: parsedBody.data.consumesUnits ?? existing.consumesUnits,
-        status: nextStatus,
-        ...(nextRateCentsSnapshot !== undefined ? { rateCentsSnapshot: nextRateCentsSnapshot } : {}),
-        ...(nextCurrencySnapshot !== undefined ? { currencySnapshot: nextCurrencySnapshot } : {}),
-      },
-      select: { id: true, subject: true, startAtUtc: true, endAtUtc: true, classTimeZone: true, consumesUnits: true, status: true },
-    });
+    const updateData = {
+      subject: nextSubject,
+      startAtUtc: nextStartAtUtc,
+      endAtUtc: nextEndAtUtc,
+      classTimeZone: nextClassTimeZone,
+      consumesUnits: nextConsumesUnits,
+      status: nextStatus,
+      ...(nextStudentHourlyRateCentsSnapshot !== undefined
+        ? { studentHourlyRateCentsSnapshot: nextStudentHourlyRateCentsSnapshot }
+        : {}),
+      ...(nextTeacherHourlyWageCentsSnapshot !== undefined
+        ? { teacherHourlyWageCentsSnapshot: nextTeacherHourlyWageCentsSnapshot }
+        : {}),
+      ...(nextCurrencySnapshot !== undefined ? { currencySnapshot: nextCurrencySnapshot } : {}),
+    } as const;
+
+    if (nextStatus === SessionStatus.COMPLETED) {
+      const result = await fastify.prisma.$transaction(async (tx) => {
+        const updated = await tx.session.updateMany({
+          where: { id: existing.id, status: SessionStatus.SCHEDULED },
+          data: updateData,
+        });
+
+        if (updated.count === 0) {
+          return { updated: false };
+        }
+
+        await tx.hourLedgerEntry.upsert({
+          where: { sessionId: existing.id },
+          create: {
+            studentId: existing.studentId,
+            teacherId: existing.teacherId,
+            deltaUnits: -nextConsumesUnits,
+            reason: HourLedgerReason.SESSION_CONSUME,
+            sessionId: existing.id,
+          },
+          update: {},
+        });
+
+        return { updated: true };
+      });
+
+      if (!result.updated) {
+        return reply.code(409).send({ message: 'Only SCHEDULED sessions can be edited' });
+      }
+    } else {
+      await fastify.prisma.session.update({
+        where: { id: existing.id },
+        data: updateData,
+        select: { id: true },
+      });
+    }
 
     await fastify.prisma.auditLog.create({
       data: {
         orgId: actor.orgId,
         actorUserId: actor.id,
-        action: 'ADMIN_UPDATE_SESSION',
+        action: nextStatus === SessionStatus.COMPLETED ? 'ADMIN_COMPLETE_SESSION' : 'ADMIN_UPDATE_SESSION',
         entityType: 'Session',
-        entityId: updated.id,
+        entityId: existing.id,
         meta: {
-          subject: updated.subject,
-          startAtUtc: updated.startAtUtc.toISOString(),
-          endAtUtc: updated.endAtUtc.toISOString(),
-          classTimeZone: updated.classTimeZone,
-          consumesUnits: updated.consumesUnits,
-          status: updated.status,
+          subject: nextSubject,
+          startAtUtc: nextStartAtUtc.toISOString(),
+          endAtUtc: nextEndAtUtc.toISOString(),
+          classTimeZone: nextClassTimeZone,
+          consumesUnits: nextConsumesUnits,
+          status: nextStatus,
         },
       },
     });

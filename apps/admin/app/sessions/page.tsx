@@ -42,7 +42,8 @@ type AdminSessionListItem = {
   classTimeZone: string;
   status: SessionStatus;
   consumesUnits: number;
-  rateCentsSnapshot: number;
+  studentHourlyRateCentsSnapshot: number;
+  teacherHourlyWageCentsSnapshot: number;
   currencySnapshot: Currency;
 };
 
@@ -151,6 +152,24 @@ function subjectLabel(subject: Subject): string {
   return SUBJECT_OPTIONS.find((opt) => opt.value === subject)?.label ?? subject;
 }
 
+function statusBadgeClass(status: SessionStatus): string {
+  if (status === 'COMPLETED') return 'statusBadgeCompleted';
+  if (status === 'CANCELLED') return 'statusBadgeCancelled';
+  return 'statusBadgeScheduled';
+}
+
+function sessionCardStatusClass(status: SessionStatus): string {
+  if (status === 'COMPLETED') return 'sessionCardStatusCompleted';
+  if (status === 'CANCELLED') return 'sessionCardStatusCancelled';
+  return 'sessionCardStatusScheduled';
+}
+
+function daySessionChipStatusClass(status: SessionStatus): string {
+  if (status === 'COMPLETED') return 'daySessionChipCompleted';
+  if (status === 'CANCELLED') return 'daySessionChipCancelled';
+  return '';
+}
+
 function parseDateKey(key: string): DateYMD {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(key);
   if (!match) throw new Error(`Invalid date key: ${key}`);
@@ -211,6 +230,7 @@ export default function SessionsPage() {
   const [success, setSuccess] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [completingId, setCompletingId] = useState<string | null>(null);
 
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
@@ -568,7 +588,7 @@ export default function SessionsPage() {
                             started.map((s) => (
                               <span
                                 key={s.id}
-                                className={`daySessionChip ${s.status !== 'SCHEDULED' ? 'daySessionChipMuted' : ''}`}
+                                className={`daySessionChip ${daySessionChipStatusClass(s.status)}`}
                                 onClick={(e) => {
                                   e.preventDefault();
                                   e.stopPropagation();
@@ -774,12 +794,14 @@ export default function SessionsPage() {
       ) : (
         <div className="stack" data-testid="session-list">
           {filteredSessions.map((session) => (
-            <div key={session.id} className="card stack" data-testid="session-item">
+            <div
+              key={session.id}
+              className={`card stack ${sessionCardStatusClass(session.status)}`}
+              data-testid="session-item"
+            >
               <div className="row" style={{ justifyContent: 'space-between', flexWrap: 'wrap' }}>
                 <strong>{formatDateTimeInTimeZone(session.startAtUtc, displayTimeZone)}</strong>
-                <span className="muted" style={{ fontSize: 12 }}>
-                  {session.status}
-                </span>
+                <span className={`statusBadge ${statusBadgeClass(session.status)}`}>{session.status}</span>
               </div>
 
               <div className="muted" style={{ fontSize: 13 }}>
@@ -793,6 +815,34 @@ export default function SessionsPage() {
               </div>
 
               <div className="row" style={{ justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                <button
+                  className="btnSecondary"
+                  type="button"
+                  onClick={async () => {
+                    setError(null);
+                    setSuccess(null);
+                    if (!window.confirm('确认将该课程标记为 COMPLETED 吗？（将扣除学生课时）')) return;
+                    setCompletingId(session.id);
+                    try {
+                      await apiFetchJson(`/admin/sessions/${session.id}`, {
+                        method: 'PATCH',
+                        headers: { 'content-type': 'application/json' },
+                        body: JSON.stringify({ status: 'COMPLETED' }),
+                      });
+                      await refreshSessions();
+                      setSuccess('已标记为 COMPLETED');
+                    } catch (err) {
+                      setError(err instanceof Error ? err.message : '标记失败');
+                    } finally {
+                      setCompletingId(null);
+                    }
+                  }}
+                  disabled={session.status !== 'SCHEDULED' || completingId !== null || deletingId !== null}
+                  data-testid="session-complete"
+                >
+                  {completingId === session.id ? '完成中…' : '标记完成'}
+                </button>
+
                 <button
                   className="btnSecondary"
                   type="button"

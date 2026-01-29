@@ -1,7 +1,7 @@
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
-import { Currency, SessionStatus, Subject, UserRole } from '@prisma/client';
+import { Currency, HourLedgerReason, SessionStatus, Subject, UserRole } from '@prisma/client';
 
 import { buildApp } from '../src/app.js';
 import { hashPassword } from '../src/lib/password.js';
@@ -55,7 +55,8 @@ async function createOrgWithUsers() {
     data: {
       teacherId: teacher.id,
       studentId: student.id,
-      hourlyRateCents: 10000,
+      studentHourlyRateCents: 10000,
+      teacherHourlyWageCents: 10000,
       currency: Currency.AUD,
     },
   });
@@ -141,6 +142,71 @@ describe('sessions scheduling (step 5)', () => {
         teacherName: 'Test Teacher',
       }),
     ]);
+  });
+
+  it('admin can mark a session as COMPLETED and student hours are deducted', async () => {
+    const { teacher, student } = await createOrgWithUsers();
+
+    await app.prisma.hourLedgerEntry.create({
+      data: { studentId: student.id, deltaUnits: 10, reason: HourLedgerReason.PURCHASE },
+    });
+
+    const adminToken = await loginAs('admin@example.com', 'password123');
+    const studentToken = await loginAs('student@example.com', 'password123');
+
+    const startAtUtc = new Date('2030-01-01T10:00:00.000Z');
+    const endAtUtc = new Date('2030-01-01T11:00:00.000Z');
+
+    const created = await request(app.server)
+      .post('/admin/sessions')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        teacherId: teacher.id,
+        studentId: student.id,
+        startAtUtc: startAtUtc.toISOString(),
+        endAtUtc: endAtUtc.toISOString(),
+        classTimeZone: 'Australia/Sydney',
+      })
+      .expect(201);
+
+    const sessionId: string = created.body.id;
+
+    const before = await request(app.server)
+      .get('/student/hours')
+      .set('Authorization', `Bearer ${studentToken}`)
+      .expect(200);
+    expect(before.body).toEqual({ remainingUnits: 10 });
+
+    await request(app.server)
+      .patch(`/admin/sessions/${sessionId}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ status: 'COMPLETED' })
+      .expect(200);
+
+    const session = await app.prisma.session.findUnique({
+      where: { id: sessionId },
+      select: { status: true },
+    });
+    expect(session?.status).toBe(SessionStatus.COMPLETED);
+
+    const ledger = await app.prisma.hourLedgerEntry.findMany({
+      where: { sessionId },
+      select: { deltaUnits: true, reason: true, studentId: true, sessionId: true },
+    });
+    expect(ledger).toEqual([
+      {
+        deltaUnits: -1,
+        reason: HourLedgerReason.SESSION_CONSUME,
+        studentId: student.id,
+        sessionId,
+      },
+    ]);
+
+    const after = await request(app.server)
+      .get('/student/hours')
+      .set('Authorization', `Bearer ${studentToken}`)
+      .expect(200);
+    expect(after.body).toEqual({ remainingUnits: 9 });
   });
 
   it('overlapping sessions for same teacher are rejected (409), but adjacent sessions are allowed', async () => {

@@ -59,10 +59,22 @@ async function createOrgWithUsers() {
   });
 
   await prisma.teacherStudentRate.create({
-    data: { teacherId: teacher.id, studentId: studentAud.id, hourlyRateCents: 10000, currency: Currency.AUD },
+    data: {
+      teacherId: teacher.id,
+      studentId: studentAud.id,
+      studentHourlyRateCents: 10000,
+      teacherHourlyWageCents: 10000,
+      currency: Currency.AUD,
+    },
   });
   await prisma.teacherStudentRate.create({
-    data: { teacherId: teacher.id, studentId: studentUsd.id, hourlyRateCents: 12000, currency: Currency.USD },
+    data: {
+      teacherId: teacher.id,
+      studentId: studentUsd.id,
+      studentHourlyRateCents: 12000,
+      teacherHourlyWageCents: 12000,
+      currency: Currency.USD,
+    },
   });
 
   return { org, admin, teacher, studentAud, studentUsd };
@@ -104,7 +116,8 @@ describe('teacher payroll (step 9)', () => {
           classTimeZone: 'Australia/Sydney',
           status: SessionStatus.COMPLETED,
           consumesUnits: 1,
-          rateCentsSnapshot: 10000,
+          studentHourlyRateCentsSnapshot: 10000,
+          teacherHourlyWageCentsSnapshot: 10000,
           currencySnapshot: Currency.AUD,
           createdByAdminId: admin.id,
         },
@@ -116,7 +129,8 @@ describe('teacher payroll (step 9)', () => {
           classTimeZone: 'Australia/Sydney',
           status: SessionStatus.COMPLETED,
           consumesUnits: 1,
-          rateCentsSnapshot: 10000,
+          studentHourlyRateCentsSnapshot: 10000,
+          teacherHourlyWageCentsSnapshot: 10000,
           currencySnapshot: Currency.AUD,
           createdByAdminId: admin.id,
         },
@@ -128,7 +142,8 @@ describe('teacher payroll (step 9)', () => {
           classTimeZone: 'Australia/Sydney',
           status: SessionStatus.COMPLETED,
           consumesUnits: 1,
-          rateCentsSnapshot: 12000,
+          studentHourlyRateCentsSnapshot: 12000,
+          teacherHourlyWageCentsSnapshot: 12000,
           currencySnapshot: Currency.USD,
           createdByAdminId: admin.id,
         },
@@ -140,7 +155,8 @@ describe('teacher payroll (step 9)', () => {
           classTimeZone: 'Australia/Sydney',
           status: SessionStatus.SCHEDULED,
           consumesUnits: 1,
-          rateCentsSnapshot: 10000,
+          studentHourlyRateCentsSnapshot: 10000,
+          teacherHourlyWageCentsSnapshot: 10000,
           currencySnapshot: Currency.AUD,
           createdByAdminId: admin.id,
         },
@@ -152,7 +168,8 @@ describe('teacher payroll (step 9)', () => {
           classTimeZone: 'Australia/Sydney',
           status: SessionStatus.COMPLETED,
           consumesUnits: 1,
-          rateCentsSnapshot: 10000,
+          studentHourlyRateCentsSnapshot: 10000,
+          teacherHourlyWageCentsSnapshot: 10000,
           currencySnapshot: Currency.AUD,
           createdByAdminId: admin.id,
         },

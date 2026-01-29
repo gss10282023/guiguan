@@ -58,7 +58,8 @@ test('管理员端：创建学生 → 加课时 → 设费率 → 排课 → 学
 
   await page.getByTestId('rate-teacherId').selectOption({ label: 'Seed Teacher (teacher@example.com)' });
   await page.getByTestId('rate-studentId').selectOption({ label: `${studentDisplayName} (${studentEmail})` });
-  await page.getByTestId('rate-hourlyRateCents').fill('12000');
+  await page.getByTestId('rate-studentHourlyRate').fill('120');
+  await page.getByTestId('rate-teacherHourlyWage').fill('120');
   await page.getByTestId('rate-currency').selectOption('AUD');
   await page.getByTestId('rate-submit').click();
   await expect(page.getByTestId('rate-success')).toBeVisible();

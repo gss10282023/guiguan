@@ -200,23 +200,36 @@ describe('admin apis (step 4)', () => {
     const createRate = await request(app.server)
       .put('/admin/rates')
       .set('Authorization', `Bearer ${token}`)
-      .send({ teacherId, studentId, hourlyRateCents: 12345, currency: 'AUD' })
+      .send({ teacherId, studentId, studentHourlyRateCents: 12345, teacherHourlyWageCents: 12345, currency: 'AUD' })
       .expect(200);
 
-    expect(createRate.body).toMatchObject({ teacherId, studentId, hourlyRateCents: 12345, currency: 'AUD' });
+    expect(createRate.body).toMatchObject({
+      teacherId,
+      studentId,
+      studentHourlyRateCents: 12345,
+      teacherHourlyWageCents: 12345,
+      currency: 'AUD',
+    });
 
     const updateRate = await request(app.server)
       .put('/admin/rates')
       .set('Authorization', `Bearer ${token}`)
-      .send({ teacherId, studentId, hourlyRateCents: 20000, currency: 'USD' })
+      .send({ teacherId, studentId, studentHourlyRateCents: 20000, teacherHourlyWageCents: 20000, currency: 'USD' })
       .expect(200);
 
-    expect(updateRate.body).toMatchObject({ teacherId, studentId, hourlyRateCents: 20000, currency: 'USD' });
+    expect(updateRate.body).toMatchObject({
+      teacherId,
+      studentId,
+      studentHourlyRateCents: 20000,
+      teacherHourlyWageCents: 20000,
+      currency: 'USD',
+    });
 
     const rateInDb = await app.prisma.teacherStudentRate.findUnique({
       where: { teacherId_studentId_subject: { teacherId, studentId, subject: 'GENERAL' } },
     });
-    expect(rateInDb?.hourlyRateCents).toBe(20000);
+    expect(rateInDb?.studentHourlyRateCents).toBe(20000);
+    expect(rateInDb?.teacherHourlyWageCents).toBe(20000);
     expect(rateInDb?.currency).toBe('USD');
 
     const audit = await app.prisma.auditLog.findFirst({
@@ -232,7 +245,8 @@ describe('admin apis (step 4)', () => {
           teacherId,
           studentId,
           subject: 'GENERAL',
-          hourlyRateCents: 20000,
+          studentHourlyRateCents: 20000,
+          teacherHourlyWageCents: 20000,
           currency: 'USD',
           teacherName: 'Teacher 1',
           studentName: 'Student 1',
@@ -278,6 +292,134 @@ describe('admin apis (step 4)', () => {
       where: { actorUserId: admin.id, action: 'ADMIN_ADD_HOURS', entityId: add.body.id },
     });
     expect(audit).toBeTruthy();
+  });
+
+  it('admin can deduct hours (adjustment), and ledger entry is negative', async () => {
+    const admin = await createUser({
+      role: UserRole.ADMIN,
+      email: 'admin@example.com',
+      password: 'password123',
+    });
+
+    const token = await loginAs('admin@example.com', 'password123');
+
+    const studentRes = await request(app.server)
+      .post('/admin/students')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        email: 'student_deduct@example.com',
+        password: 'password123',
+        displayName: 'Student Deduct',
+        timeZone: 'Asia/Shanghai',
+      })
+      .expect(201);
+
+    const studentId: string = studentRes.body.id;
+
+    await request(app.server)
+      .post(`/admin/students/${studentId}/hours`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ deltaUnits: -1, reason: 'PURCHASE' })
+      .expect(400);
+
+    const deduct = await request(app.server)
+      .post(`/admin/students/${studentId}/hours`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ deltaUnits: -4, reason: 'ADJUSTMENT' })
+      .expect(201);
+
+    const ledgerInDb = await app.prisma.hourLedgerEntry.findUnique({ where: { id: deduct.body.id } });
+    expect(ledgerInDb?.studentId).toBe(studentId);
+    expect(ledgerInDb?.deltaUnits).toBe(-4);
+    expect(ledgerInDb?.reason).toBe('ADJUSTMENT');
+
+    const audit = await app.prisma.auditLog.findFirst({
+      where: { actorUserId: admin.id, action: 'ADMIN_ADD_HOURS', entityId: deduct.body.id },
+    });
+    expect(audit).toBeTruthy();
+  });
+
+  it('admin can view student hours by teacher and ledger entries', async () => {
+    await createUser({
+      role: UserRole.ADMIN,
+      email: 'admin@example.com',
+      password: 'password123',
+    });
+
+    const token = await loginAs('admin@example.com', 'password123');
+
+    const studentRes = await request(app.server)
+      .post('/admin/students')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        email: 'student_view@example.com',
+        password: 'password123',
+        displayName: 'Student View',
+        timeZone: 'Asia/Shanghai',
+      })
+      .expect(201);
+
+    const teacherRes = await request(app.server)
+      .post('/admin/teachers')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        email: 'teacher_view@example.com',
+        password: 'password123',
+        displayName: 'Teacher View',
+        timeZone: 'Australia/Sydney',
+      })
+      .expect(201);
+
+    const studentId: string = studentRes.body.id;
+    const teacherId: string = teacherRes.body.id;
+
+    await request(app.server)
+      .post(`/admin/students/${studentId}/hours`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ deltaUnits: 3, reason: 'PURCHASE' })
+      .expect(201);
+
+    await request(app.server)
+      .post(`/admin/students/${studentId}/hours`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ deltaUnits: 5, reason: 'PURCHASE', teacherId })
+      .expect(201);
+
+    const detail = await request(app.server)
+      .get(`/admin/students/${studentId}`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+
+    expect(detail.body.remainingUnits).toBe(8);
+    expect(detail.body.hoursByTeacher).toMatchObject({
+      totalRemainingUnits: 8,
+      unassignedUnits: 3,
+    });
+    expect(detail.body.hoursByTeacher.byTeacher).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          teacherId,
+          teacherName: 'Teacher View',
+          remainingUnits: 5,
+        }),
+      ]),
+    );
+    expect(detail.body.ledgerEntries).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          deltaUnits: 5,
+          reason: 'PURCHASE',
+          teacherId,
+          teacherName: 'Teacher View',
+        }),
+        expect.objectContaining({
+          deltaUnits: 3,
+          reason: 'PURCHASE',
+          teacherId: null,
+          teacherName: null,
+        }),
+      ]),
+    );
   });
 
   it('admin can disable student and teacher (delete buttons)', async () => {
@@ -364,7 +506,14 @@ describe('admin apis (step 4)', () => {
     const createRate = await request(app.server)
       .put('/admin/rates')
       .set('Authorization', `Bearer ${token}`)
-      .send({ teacherId, studentId, subject: 'GENERAL', hourlyRateCents: 10000, currency: 'AUD' })
+      .send({
+        teacherId,
+        studentId,
+        subject: 'GENERAL',
+        studentHourlyRateCents: 10000,
+        teacherHourlyWageCents: 10000,
+        currency: 'AUD',
+      })
       .expect(200);
 
     const rateId: string = createRate.body.id;
@@ -398,7 +547,7 @@ describe('admin apis (step 4)', () => {
     await request(app.server)
       .put('/admin/rates')
       .set('Authorization', `Bearer ${token}`)
-      .send({ teacherId: 't', studentId: 's', hourlyRateCents: 12345, currency: 'AUD' })
+      .send({ teacherId: 't', studentId: 's', studentHourlyRateCents: 12345, teacherHourlyWageCents: 12345, currency: 'AUD' })
       .expect(403);
 
     await request(app.server).delete('/admin/students/s').set('Authorization', `Bearer ${token}`).expect(403);

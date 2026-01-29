@@ -122,21 +122,21 @@ const teacherRoutes: FastifyPluginAsync = async (fastify) => {
       PAYROLL_TIME_ZONE,
     );
 
-	    const sessions = await fastify.prisma.session.findMany({
-	      where: {
-	        teacherId: request.user.userId,
-	        status: SessionStatus.COMPLETED,
-	        endAtUtc: { gte: rangeStartUtc, lt: rangeEndUtcExclusive },
-	      },
-	      select: {
-	        studentId: true,
-	        startAtUtc: true,
-	        endAtUtc: true,
-	        rateCentsSnapshot: true,
-	        currencySnapshot: true,
-	        student: { select: { studentProfile: { select: { displayName: true } } } },
-	      },
-	    });
+    const sessions = await fastify.prisma.session.findMany({
+      where: {
+        teacherId: request.user.userId,
+        status: SessionStatus.COMPLETED,
+        endAtUtc: { gte: rangeStartUtc, lt: rangeEndUtcExclusive },
+      },
+      select: {
+        studentId: true,
+        startAtUtc: true,
+        endAtUtc: true,
+        teacherHourlyWageCentsSnapshot: true,
+        currencySnapshot: true,
+        student: { select: { studentProfile: { select: { displayName: true } } } },
+      },
+    });
 
 	    const totalsByCurrency = new Map<
 	      Currency,
@@ -165,7 +165,7 @@ const teacherRoutes: FastifyPluginAsync = async (fastify) => {
 	        sessionsCount: 0,
 	      };
 
-	      const sessionCents = prorateCents(durationMs, session.rateCentsSnapshot);
+      const sessionCents = prorateCents(durationMs, session.teacherHourlyWageCentsSnapshot);
 	      existing.totalCents += sessionCents;
 	      existing.totalHours += durationMs / MS_PER_HOUR;
 	      existing.sessionsCount += 1;

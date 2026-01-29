@@ -127,14 +127,15 @@ model TeacherProfile {
 }
 
 model TeacherStudentRate {
-  id              String   @id @default(cuid())
-  teacherId       String
-  studentId       String
-  subject         Subject  @default(GENERAL)
-  hourlyRateCents Int
-  currency        Currency
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id                   String   @id @default(cuid())
+  teacherId            String
+  studentId            String
+  subject              Subject  @default(GENERAL)
+  studentHourlyRateCents Int
+  teacherHourlyWageCents Int
+  currency             Currency
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 
   teacher User @relation("TeacherRates", fields: [teacherId], references: [id], onDelete: Cascade)
   student User @relation("StudentRates", fields: [studentId], references: [id], onDelete: Cascade)
@@ -155,7 +156,8 @@ model Session {
   classTimeZone     String
   status            SessionStatus @default(SCHEDULED)
   consumesUnits     Int           @default(1)
-  rateCentsSnapshot Int
+  studentHourlyRateCentsSnapshot Int
+  teacherHourlyWageCentsSnapshot Int
   currencySnapshot  Currency
   createdByAdminId  String
   createdAt         DateTime      @default(now())

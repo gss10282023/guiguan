@@ -55,7 +55,8 @@ async function createOrgWithUsers() {
     data: {
       teacherId: teacher.id,
       studentId: student.id,
-      hourlyRateCents: 10000,
+      studentHourlyRateCents: 10000,
+      teacherHourlyWageCents: 10000,
       currency: Currency.AUD,
     },
   });
@@ -80,7 +81,8 @@ async function createSession(params: {
       classTimeZone: params.classTimeZone ?? 'Australia/Sydney',
       status: SessionStatus.SCHEDULED,
       consumesUnits: 1,
-      rateCentsSnapshot: 10000,
+      studentHourlyRateCentsSnapshot: 10000,
+      teacherHourlyWageCentsSnapshot: 10000,
       currencySnapshot: Currency.AUD,
       createdByAdminId: params.createdByAdminId,
     },
