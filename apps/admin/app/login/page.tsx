@@ -9,8 +9,8 @@ export default function LoginPage() {
   const router = useRouter();
   const { hydrated, accessToken, setAccessToken } = useAuth();
 
-  const [email, setEmail] = useState('admin@example.com');
-  const [password, setPassword] = useState('password123');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -80,7 +80,7 @@ export default function LoginPage() {
               autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="admin@example.com"
+              placeholder="请输入邮箱"
             />
           </label>
 
@@ -105,13 +105,8 @@ export default function LoginPage() {
           <button className="btn" type="submit" disabled={loading} data-testid="login-submit">
             {loading ? '登录中…' : '登录'}
           </button>
-
-          <div className="muted" style={{ fontSize: 12 }}>
-            Seed 管理员账号默认已填充，可直接登录做验收。
-          </div>
         </form>
       </div>
     </main>
   );
 }
-

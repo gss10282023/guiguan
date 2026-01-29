@@ -1,5 +1,20 @@
 import { expect, test } from '@playwright/test';
 
+test('管理员端：未登录访问根路径不应闪到 /students', async ({ page }) => {
+  const navigations: string[] = [];
+  page.on('framenavigated', (frame) => {
+    if (frame === page.mainFrame()) navigations.push(frame.url());
+  });
+
+  await page.addInitScript(() => window.localStorage.clear());
+  await page.context().clearCookies();
+
+  await page.goto('/');
+  await expect(page).toHaveURL(/\/login$/);
+
+  expect(navigations.some((url) => new URL(url).pathname === '/students')).toBe(false);
+});
+
 function toDateTimeLocalValue(date: Date): string {
   const pad = (value: number) => String(value).padStart(2, '0');
   const year = date.getFullYear();
@@ -51,13 +66,22 @@ test('管理员端：创建学生 → 加课时 → 设费率 → 排课 → 学
   await page.getByRole('link', { name: '排课' }).click();
   await expect(page).toHaveURL(/\/sessions$/);
 
+  await page.getByRole('button', { name: '创建课程', exact: true }).click();
+
   await page.getByTestId('session-teacherId').selectOption({ label: 'Seed Teacher (teacher@example.com)' });
   await page.getByTestId('session-studentId').selectOption({ label: `${studentDisplayName} (${studentEmail})` });
 
-  const start = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
+  const slotBase = nonce;
+  const slotIndex = slotBase % 18; // 9:00~17:30
+  const hour = 9 + Math.floor(slotIndex / 2);
+  const minute = slotIndex % 2 ? 30 : 0;
+  const dayOffset = 1 + (Math.floor(slotBase / 18) % 7);
+
+  const start = new Date();
   start.setSeconds(0, 0);
-  start.setMinutes(0);
-  start.setHours(10);
+  start.setDate(start.getDate() + dayOffset);
+  start.setHours(hour);
+  start.setMinutes(minute);
   const end = new Date(start.getTime() + 60 * 60 * 1000);
 
   await page.getByTestId('session-startAt').fill(toDateTimeLocalValue(start));

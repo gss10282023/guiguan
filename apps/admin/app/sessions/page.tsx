@@ -368,7 +368,7 @@ export default function SessionsPage() {
       </div>
 
       {error ? <div className="error">{error}</div> : null}
-      {success ? <div>{success}</div> : null}
+      {success ? <div data-testid="session-success">{success}</div> : null}
 
       {teachers === null || students === null ? (
         <div className="card muted">加载中…</div>
