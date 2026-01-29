@@ -16,6 +16,8 @@ RUN pnpm install --frozen-lockfile
 
 ARG APP_NAME
 ENV APP_NAME=${APP_NAME}
+ARG API_BASE_URL=http://localhost:3001
+ENV API_BASE_URL=${API_BASE_URL}
 
 RUN pnpm --filter @guiguan/${APP_NAME} build
 
