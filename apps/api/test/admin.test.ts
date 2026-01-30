@@ -163,6 +163,40 @@ describe('admin apis (step 4)', () => {
     expect(audit).toBeTruthy();
   });
 
+  it('returns 409 when creating a student with an existing email', async () => {
+    await createUser({
+      role: UserRole.ADMIN,
+      email: 'admin@example.com',
+      password: 'password123',
+    });
+
+    const token = await loginAs('admin@example.com', 'password123');
+
+    await request(app.server)
+      .post('/admin/students')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        email: 'student1@example.com',
+        password: 'password123',
+        displayName: 'Student 1',
+        timeZone: 'Asia/Shanghai',
+      })
+      .expect(201);
+
+    const res = await request(app.server)
+      .post('/admin/students')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        email: 'student1@example.com',
+        password: 'password123',
+        displayName: 'Student 1 duplicate',
+        timeZone: 'Asia/Shanghai',
+      })
+      .expect(409);
+
+    expect(res.body).toMatchObject({ message: '邮箱已存在' });
+  });
+
   it('admin can upsert rate, and audit log is written', async () => {
     const admin = await createUser({
       role: UserRole.ADMIN,

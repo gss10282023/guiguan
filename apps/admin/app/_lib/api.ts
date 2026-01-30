@@ -30,6 +30,19 @@ export function useApi() {
       const res = await apiFetch(input, init);
       if (!res.ok) {
         const text = await res.text().catch(() => '');
+        const contentType = res.headers.get('content-type') ?? '';
+
+        if (contentType.includes('application/json') && text) {
+          try {
+            const parsed: unknown = JSON.parse(text);
+            if (parsed && typeof parsed === 'object' && 'message' in parsed && typeof parsed.message === 'string') {
+              throw new Error(parsed.message);
+            }
+          } catch (error) {
+            if (error instanceof Error && error.message !== text) throw error;
+          }
+        }
+
         throw new Error(text || `Request failed: ${res.status}`);
       }
       return (await res.json()) as T;
@@ -39,4 +52,3 @@ export function useApi() {
 
   return { apiFetch, apiFetchJson };
 }
-

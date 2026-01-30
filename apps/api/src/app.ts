@@ -118,6 +118,18 @@ export function buildApp(options?: { logger?: boolean }) {
   app.setErrorHandler((error, request, reply) => {
     request.log.error({ err: error }, 'request failed');
 
+    const prismaError = error as { name?: unknown; code?: unknown; meta?: unknown };
+    if (prismaError?.name === 'PrismaClientKnownRequestError' && prismaError?.code === 'P2002') {
+      const meta = prismaError.meta as { target?: unknown } | undefined;
+      const target = meta?.target;
+      const fields: string[] =
+        Array.isArray(target) ? target.filter((value): value is string => typeof value === 'string') : [];
+
+      if (fields.includes('email')) return reply.code(409).send({ message: '邮箱已存在' });
+      if (fields.includes('phone')) return reply.code(409).send({ message: '手机号已存在' });
+      return reply.code(409).send({ message: '数据已存在' });
+    }
+
     const statusCode =
       typeof error.statusCode === 'number' && error.statusCode >= 400 && error.statusCode < 600
         ? error.statusCode
