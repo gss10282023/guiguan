@@ -64,111 +64,111 @@ export default function StudentsPage() {
       </div>
 
       {error ? <div className="error">{error}</div> : null}
-      {success ? <div>{success}</div> : null}
+      {success ? <div className="success">{success}</div> : null}
 
-      <div className="card stack">
-        <strong>创建学生</strong>
-        <form
-          className="stack"
-          onSubmit={async (event) => {
-            event.preventDefault();
-            setError(null);
-            setSuccess(null);
+      <div className="splitGrid">
+        <div className="card stack">
+          <strong>创建学生</strong>
+          <form
+            className="stack"
+            onSubmit={async (event) => {
+              event.preventDefault();
+              setError(null);
+              setSuccess(null);
 
-            if (!email || !displayName || !timeZone || password.length < 8) {
-              setError('请填写完整信息（密码至少 8 位）');
-              return;
-            }
+              if (!email || !displayName || !timeZone || password.length < 8) {
+                setError('请填写完整信息（密码至少 8 位）');
+                return;
+              }
 
-            setLoading(true);
-            try {
-              const created = await apiFetchJson<{ id: string }>('/admin/students', {
-                method: 'POST',
-                headers: { 'content-type': 'application/json' },
-                body: JSON.stringify({ email, password, displayName, timeZone }),
-              });
-              setEmail('');
-              setDisplayName('');
-              router.push(`/students/${created.id}`);
-            } catch (err) {
-              setError(err instanceof Error ? err.message : '创建失败');
-            } finally {
-              setLoading(false);
-            }
-          }}
-        >
-          <label className="field">
-            <span className="muted">邮箱</span>
-            <input data-testid="student-create-email" value={email} onChange={(e) => setEmail(e.target.value)} />
-          </label>
+              setLoading(true);
+              try {
+                const created = await apiFetchJson<{ id: string }>('/admin/students', {
+                  method: 'POST',
+                  headers: { 'content-type': 'application/json' },
+                  body: JSON.stringify({ email, password, displayName, timeZone }),
+                });
+                setEmail('');
+                setDisplayName('');
+                router.push(`/students/${created.id}`);
+              } catch (err) {
+                setError(err instanceof Error ? err.message : '创建失败');
+              } finally {
+                setLoading(false);
+              }
+            }}
+          >
+            <label className="field">
+              <span className="muted">邮箱</span>
+              <input data-testid="student-create-email" value={email} onChange={(e) => setEmail(e.target.value)} />
+            </label>
 
-          <label className="field">
-            <span className="muted">初始密码（至少 8 位）</span>
-            <input
-              data-testid="student-create-password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-          </label>
+            <label className="field">
+              <span className="muted">初始密码（至少 8 位）</span>
+              <input
+                data-testid="student-create-password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+            </label>
 
-          <label className="field">
-            <span className="muted">姓名</span>
-            <input
-              data-testid="student-create-displayName"
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-            />
-          </label>
+            <label className="field">
+              <span className="muted">姓名</span>
+              <input
+                data-testid="student-create-displayName"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+              />
+            </label>
 
-          <label className="field">
-            <span className="muted">时区</span>
-            <select data-testid="student-create-timeZone" value={timeZone} onChange={(e) => setTimeZone(e.target.value)}>
-              {TIME_ZONE_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </label>
+            <label className="field">
+              <span className="muted">时区</span>
+              <select data-testid="student-create-timeZone" value={timeZone} onChange={(e) => setTimeZone(e.target.value)}>
+                {TIME_ZONE_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </label>
 
-          <button className="btn" type="submit" disabled={loading} data-testid="student-create-submit">
-            {loading ? '创建中…' : '创建'}
-          </button>
-        </form>
-      </div>
-
-      <div className="card stack">
-        <div className="row" style={{ justifyContent: 'space-between' }}>
-          <strong>学生列表</strong>
-          <button className="btnSecondary" type="button" onClick={() => void refresh()} disabled={students === null}>
-            刷新
-          </button>
+            <button className="btn" type="submit" disabled={loading} data-testid="student-create-submit">
+              {loading ? '创建中…' : '创建'}
+            </button>
+          </form>
         </div>
 
-        {students === null ? (
-          <div className="muted">加载中…</div>
-        ) : students.length === 0 ? (
-          <div className="muted">暂无学生</div>
-        ) : (
-          <div className="stack" data-testid="student-list">
-            {students.map((student) => (
-              <div key={student.id} className="card stack" data-testid="student-item">
-                <Link href={`/students/${student.id}`} style={{ display: 'block' }}>
-                  <div className="row" style={{ justifyContent: 'space-between' }}>
-                    <strong>{student.displayName ?? '—'}</strong>
-                    <span className="muted" style={{ fontSize: 12 }}>
-                      {student.createdAt.slice(0, 10)}
-                    </span>
-                  </div>
-                  <div className="muted" style={{ marginTop: 8, fontSize: 13 }}>
-                    {student.email ?? '—'}
-                  </div>
-                </Link>
+        <div className="card stack">
+          <div className="row" style={{ justifyContent: 'space-between' }}>
+            <strong>学生列表</strong>
+            <button className="btnSecondary btnSm" type="button" onClick={() => void refresh()} disabled={students === null}>
+              刷新
+            </button>
+          </div>
 
-                <div className="row" style={{ justifyContent: 'flex-end' }}>
+          {students === null ? (
+            <div className="muted">加载中…</div>
+          ) : students.length === 0 ? (
+            <div className="muted">暂无学生</div>
+          ) : (
+            <div className="list" data-testid="student-list">
+              {students.map((student) => (
+                <div key={student.id} className="listItem" data-testid="student-item">
+                  <div className="listItemMain">
+                    <Link href={`/students/${student.id}`} style={{ display: 'block' }}>
+                      <div className="row" style={{ justifyContent: 'space-between' }}>
+                        <span className="listItemTitle">{student.displayName ?? '—'}</span>
+                        <span className="muted" style={{ fontSize: 12 }}>
+                          {student.createdAt.slice(0, 10)}
+                        </span>
+                      </div>
+                      <div className="listItemMeta">{student.email ?? '—'}</div>
+                    </Link>
+                  </div>
+
                   <button
-                    className="btnDanger"
+                    className="btnDanger btnSm"
                     type="button"
                     disabled={deletingId !== null}
                     data-testid="student-delete"
@@ -191,10 +191,10 @@ export default function StudentsPage() {
                     {deletingId === student.id ? '删除中…' : '删除'}
                   </button>
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </main>
   );

@@ -253,7 +253,7 @@ export default function CalendarPage() {
             <Link
               key={session.id}
               href={`/session/${session.id}`}
-              className="card"
+              className="card cardInteractive"
               data-testid="session-item"
               style={{ display: 'block' }}
             >

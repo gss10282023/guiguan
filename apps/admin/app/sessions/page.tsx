@@ -388,7 +388,11 @@ export default function SessionsPage() {
       </div>
 
       {error ? <div className="error">{error}</div> : null}
-      {success ? <div data-testid="session-success">{success}</div> : null}
+      {success ? (
+        <div className="success" data-testid="session-success">
+          {success}
+        </div>
+      ) : null}
 
       {teachers === null || students === null ? (
         <div className="card muted">加载中…</div>
@@ -450,7 +454,12 @@ export default function SessionsPage() {
               </select>
             </label>
 
-            <button className="btnSecondary" type="button" onClick={() => void refreshSessions()} disabled={sessions === null}>
+            <button
+              className="btnSecondary btnSm"
+              type="button"
+              onClick={() => void refreshSessions()}
+              disabled={sessions === null}
+            >
               刷新
             </button>
           </div>
@@ -461,166 +470,169 @@ export default function SessionsPage() {
         </div>
       )}
 
-      <div className="card">
-        <div className="row" style={{ justifyContent: 'space-between' }}>
-          <button
-            type="button"
-            className="btnSecondary"
-            onClick={() => {
-              setViewMonth((prev) => addMonths(prev, -1));
-              setSelectedDateKey(null);
-              setSessions(null);
-            }}
-          >
-            上月
-          </button>
-
-          <strong>{formatMonthLabel(viewMonth)}</strong>
-
-          <button
-            type="button"
-            className="btnSecondary"
-            onClick={() => {
-              setViewMonth((prev) => addMonths(prev, 1));
-              setSelectedDateKey(null);
-              setSessions(null);
-            }}
-          >
-            下月
-          </button>
-        </div>
-
-        <div className="calendarWeekdays" aria-hidden="true">
-          <div style={{ textAlign: 'center' }}>一</div>
-          <div style={{ textAlign: 'center' }}>二</div>
-          <div style={{ textAlign: 'center' }}>三</div>
-          <div style={{ textAlign: 'center' }}>四</div>
-          <div style={{ textAlign: 'center' }}>五</div>
-          <div style={{ textAlign: 'center' }}>六</div>
-          <div style={{ textAlign: 'center' }}>日</div>
-        </div>
-
-        <div className="calendarGrid">
-          {gridDays.map((date) => {
-            const inMonth = date.monthIndex === viewMonthNumber;
-            const key = ymdToKey(date);
-            const count = sessionsByDateKey.get(key) ?? 0;
-            const selected = selectedDateKey === key;
-
-            const className = ['calendarCell', inMonth ? '' : 'calendarCellOut', selected ? 'calendarCellSelected' : '']
-              .filter(Boolean)
-              .join(' ');
-
-            return (
-              <button
-                key={key}
-                type="button"
-                className={className}
-                onClick={() => setSelectedDateKey(key)}
-                aria-label={`${key}，${count ? `${count} 节课` : '无课程'}`}
-              >
-                <div className="row" style={{ justifyContent: 'space-between', gap: 8 }}>
-                  <span style={{ fontSize: 12 }}>{date.day}</span>
-                  {count ? <span className="calendarBadge">{count}</span> : null}
-                </div>
-              </button>
-            );
-          })}
-        </div>
-
-        <div className="row" style={{ justifyContent: 'space-between', marginTop: 12 }}>
-          <span className="muted" style={{ fontSize: 12 }}>
-            点击日期筛选课程
-          </span>
-          {selectedDateKey ? (
-            <button type="button" className="btnSecondary" onClick={() => setSelectedDateKey(null)}>
-              清除筛选（{selectedDateKey}）
-            </button>
-          ) : null}
-        </div>
-      </div>
-
-      <div className="card stack">
-        <div className="row" style={{ justifyContent: 'space-between', flexWrap: 'wrap' }}>
-          <strong>日视图（{activeDateKey}）</strong>
-          <div className="row" style={{ flexWrap: 'wrap' }}>
+      <div className="splitGridWide">
+        <div className="card">
+          <div className="row" style={{ justifyContent: 'space-between' }}>
             <button
-              className="btn"
               type="button"
+              className="btnSecondary"
               onClick={() => {
-                const base = buildLocalDateAt(activeDate, 9, 0);
-                openCreateModalAt(base);
+                setViewMonth((prev) => addMonths(prev, -1));
+                setSelectedDateKey(null);
+                setSessions(null);
               }}
             >
-              创建课程
+              上月
             </button>
+
+            <strong>{formatMonthLabel(viewMonth)}</strong>
+
+            <button
+              type="button"
+              className="btnSecondary"
+              onClick={() => {
+                setViewMonth((prev) => addMonths(prev, 1));
+                setSelectedDateKey(null);
+                setSessions(null);
+              }}
+            >
+              下月
+            </button>
+          </div>
+
+          <div className="calendarWeekdays" aria-hidden="true">
+            <div style={{ textAlign: 'center' }}>一</div>
+            <div style={{ textAlign: 'center' }}>二</div>
+            <div style={{ textAlign: 'center' }}>三</div>
+            <div style={{ textAlign: 'center' }}>四</div>
+            <div style={{ textAlign: 'center' }}>五</div>
+            <div style={{ textAlign: 'center' }}>六</div>
+            <div style={{ textAlign: 'center' }}>日</div>
+          </div>
+
+          <div className="calendarGrid">
+            {gridDays.map((date) => {
+              const inMonth = date.monthIndex === viewMonthNumber;
+              const key = ymdToKey(date);
+              const count = sessionsByDateKey.get(key) ?? 0;
+              const selected = selectedDateKey === key;
+
+              const className = ['calendarCell', inMonth ? '' : 'calendarCellOut', selected ? 'calendarCellSelected' : '']
+                .filter(Boolean)
+                .join(' ');
+
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  className={className}
+                  onClick={() => setSelectedDateKey(key)}
+                  aria-label={`${key}，${count ? `${count} 节课` : '无课程'}`}
+                >
+                  <div className="row" style={{ justifyContent: 'space-between', gap: 8 }}>
+                    <span style={{ fontSize: 12 }}>{date.day}</span>
+                    {count ? <span className="calendarBadge">{count}</span> : null}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="row" style={{ justifyContent: 'space-between', marginTop: 12 }}>
+            <span className="muted" style={{ fontSize: 12 }}>
+              点击日期筛选课程
+            </span>
+            {selectedDateKey ? (
+              <button type="button" className="btnSecondary" onClick={() => setSelectedDateKey(null)}>
+                清除筛选（{selectedDateKey}）
+              </button>
+            ) : null}
           </div>
         </div>
 
-        <div className="muted" style={{ fontSize: 12 }}>
-          点击下面任意时间段可快速创建；课程展示时区：{displayTimeZone}
-        </div>
+        <div className="card stack">
+          <div className="row" style={{ justifyContent: 'space-between', flexWrap: 'wrap' }}>
+            <strong>日视图（{activeDateKey}）</strong>
+            <div className="row" style={{ flexWrap: 'wrap' }}>
+              <button
+                className="btn"
+                type="button"
+                onClick={() => {
+                  const base = buildLocalDateAt(activeDate, 9, 0);
+                  openCreateModalAt(base);
+                }}
+              >
+                创建课程
+              </button>
+            </div>
+          </div>
 
-        <div className="daySchedule" role="grid" aria-label="按天时间段">
-          {Array.from({ length: 24 }).map((_, hour) => {
-            const slots: { minute: number; label: string }[] = [
-              { minute: 0, label: `${String(hour).padStart(2, '0')}:00` },
-              { minute: 30, label: `${String(hour).padStart(2, '0')}:30` },
-            ];
-            return (
-              <div key={hour} className="dayHourRow">
-                <div className="dayHourLabel">{String(hour).padStart(2, '0')}:00</div>
-                <div className="dayHourSlots">
-                  {slots.map((slot) => {
-                    const date = buildLocalDateAt(activeDate, hour, slot.minute);
-                    const started = sessionsByStartTime.get(slot.label) ?? [];
-                    return (
-                      <button
-                        key={slot.label}
-                        type="button"
-                        className="daySlot"
-                        onClick={() => openCreateModalAt(date)}
-                        aria-label={`创建课程 ${activeDateKey} ${slot.label}`}
-                      >
-                        <span className="daySlotTime">{slot.label}</span>
-                        <span className="daySlotItems">
-                          {started.length ? (
-                            started.map((s) => (
-                              <span
-                                key={s.id}
-                                className={`daySessionChip ${daySessionChipStatusClass(s.status)}`}
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  if (s.status !== 'SCHEDULED') return;
-                                  openEditModal(s);
-                                }}
-                                role="button"
-                                tabIndex={0}
-                                onKeyDown={(e) => {
-                                  if (e.key !== 'Enter' && e.key !== ' ') return;
-                                  e.preventDefault();
-                                  if (s.status !== 'SCHEDULED') return;
-                                  openEditModal(s);
-                                }}
-                                aria-label={`编辑课程 ${s.id}`}
-                              >
-                                {subjectLabel(s.subject)} · {formatTimeInTimeZone(s.startAtUtc, displayTimeZone)}-{formatTimeInTimeZone(s.endAtUtc, displayTimeZone)}
+          <div className="muted" style={{ fontSize: 12 }}>
+            点击下面任意时间段可快速创建；课程展示时区：{displayTimeZone}
+          </div>
+
+          <div className="daySchedule" role="grid" aria-label="按天时间段">
+            {Array.from({ length: 24 }).map((_, hour) => {
+              const slots: { minute: number; label: string }[] = [
+                { minute: 0, label: `${String(hour).padStart(2, '0')}:00` },
+                { minute: 30, label: `${String(hour).padStart(2, '0')}:30` },
+              ];
+              return (
+                <div key={hour} className="dayHourRow">
+                  <div className="dayHourLabel">{String(hour).padStart(2, '0')}:00</div>
+                  <div className="dayHourSlots">
+                    {slots.map((slot) => {
+                      const date = buildLocalDateAt(activeDate, hour, slot.minute);
+                      const started = sessionsByStartTime.get(slot.label) ?? [];
+                      return (
+                        <button
+                          key={slot.label}
+                          type="button"
+                          className="daySlot"
+                          onClick={() => openCreateModalAt(date)}
+                          aria-label={`创建课程 ${activeDateKey} ${slot.label}`}
+                        >
+                          <span className="daySlotTime">{slot.label}</span>
+                          <span className="daySlotItems">
+                            {started.length ? (
+                              started.map((s) => (
+                                <span
+                                  key={s.id}
+                                  className={`daySessionChip ${daySessionChipStatusClass(s.status)}`}
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    if (s.status !== 'SCHEDULED') return;
+                                    openEditModal(s);
+                                  }}
+                                  role="button"
+                                  tabIndex={0}
+                                  onKeyDown={(e) => {
+                                    if (e.key !== 'Enter' && e.key !== ' ') return;
+                                    e.preventDefault();
+                                    if (s.status !== 'SCHEDULED') return;
+                                    openEditModal(s);
+                                  }}
+                                  aria-label={`编辑课程 ${s.id}`}
+                                >
+                                  {subjectLabel(s.subject)} · {formatTimeInTimeZone(s.startAtUtc, displayTimeZone)}-
+                                  {formatTimeInTimeZone(s.endAtUtc, displayTimeZone)}
+                                </span>
+                              ))
+                            ) : (
+                              <span className="muted" style={{ fontSize: 12 }}>
+                                —
                               </span>
-                            ))
-                          ) : (
-                            <span className="muted" style={{ fontSize: 12 }}>
-                              —
-                            </span>
-                          )}
-                        </span>
-                      </button>
-                    );
-                  })}
+                            )}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       </div>
 
@@ -705,7 +717,7 @@ export default function SessionsPage() {
             <strong>{editingSessionId ? '编辑课程' : '创建课程'}</strong>
             <button
               type="button"
-              className="btnSecondary"
+              className="btnSecondary btnSm"
               onClick={() => {
                 setModalOpen(false);
                 setEditingSessionId(null);
