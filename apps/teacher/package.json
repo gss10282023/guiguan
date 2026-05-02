@@ -8,7 +8,10 @@
     "lint": "next lint",
     "typecheck": "pnpm exec tsc -p tsconfig.json --noEmit",
     "test": "echo \"(teacher) no tests yet\"",
-    "e2e": "playwright test"
+    "e2e": "playwright test --project=iphone-15-pro-max",
+    "e2e:ui": "playwright test --project=iphone-15-pro-max --ui",
+    "e2e:headed": "playwright test --project=iphone-15-pro-max --headed",
+    "e2e:desktop": "playwright test --project=chromium"
   },
   "dependencies": {
     "@guiguan/shared": "workspace:*",

@@ -38,9 +38,12 @@ export default defineConfig({
   ],
   projects: [
     {
+      name: 'iphone-15-pro-max',
+      use: { ...devices['iPhone 15 Pro Max'] },
+    },
+    {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
     },
   ],
 });
-

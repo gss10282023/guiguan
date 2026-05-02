@@ -99,6 +99,7 @@ export default function CalendarPage() {
 
   const gridDays = useMemo(() => buildMonthGrid(viewMonth), [viewMonth]);
   const viewMonthNumber = viewMonth.monthIndex;
+  const todayKey = useMemo(() => toDateKeyInTimeZone(new Date(), timeZone), [timeZone]);
 
   const query = useMemo(() => {
     const first = gridDays[0];
@@ -205,11 +206,13 @@ export default function CalendarPage() {
             const key = ymdToKey(date);
             const count = sessionsByDateKey.get(key) ?? 0;
             const selected = selectedDateKey === key;
+            const today = key === todayKey;
 
             const className = [
               'calendarCell',
               inMonth ? '' : 'calendarCellOut',
               selected ? 'calendarCellSelected' : '',
+              today ? 'calendarCellToday' : '',
             ]
               .filter(Boolean)
               .join(' ');
@@ -222,10 +225,12 @@ export default function CalendarPage() {
                 onClick={() => setSelectedDateKey(key)}
                 aria-label={`${key}，${count ? `${count} 节课` : '无课程'}`}
               >
-                <div className="row" style={{ justifyContent: 'space-between', gap: 8 }}>
-                  <span style={{ fontSize: 12 }}>{date.day}</span>
-                  {count ? <span className="calendarBadge">{count}</span> : null}
-                </div>
+                <span className="calendarDay">{date.day}</span>
+                {count ? (
+                  <span className="calendarBadge" aria-hidden="true">
+                    {count}
+                  </span>
+                ) : null}
               </button>
             );
           })}

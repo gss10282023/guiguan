@@ -462,14 +462,21 @@ button {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--surface);
+  position: relative;
   padding: 8px;
   text-align: left;
   min-height: 44px;
+  overflow: hidden;
   transition:
     background-color 180ms ease,
     border-color 180ms ease,
     box-shadow 180ms ease,
     transform 120ms ease;
+}
+
+.calendarDay {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
 }
 
 .calendarCell:hover {
@@ -486,6 +493,11 @@ button {
   color: var(--muted);
 }
 
+.calendarCellToday:not(.calendarCellSelected) {
+  border-color: var(--border-strong);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
 .calendarCellSelected {
   border-color: var(--border-strong);
   background: var(--surface-3);
@@ -497,6 +509,9 @@ button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  position: absolute;
+  top: 8px;
+  right: 8px;
   min-width: 18px;
   height: 18px;
   padding: 0 6px;
@@ -506,10 +521,121 @@ button {
   border: 1px solid var(--border-strong);
   color: var(--text);
   font-variant-numeric: tabular-nums;
+  pointer-events: none;
 }
 
 .calendarCellSelected .calendarBadge {
   background: var(--surface-muted);
   border-color: var(--border-strong);
   color: var(--text);
+}
+
+@media (max-width: 520px) {
+  .calendarWeekdays {
+    gap: 6px;
+    font-size: 11px;
+  }
+
+  .calendarGrid {
+    gap: 6px;
+  }
+
+  .calendarCell {
+    padding: 6px;
+  }
+
+  .calendarBadge {
+    top: 6px;
+    right: 6px;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 5px;
+    font-size: 11px;
+  }
+}
+
+@media (max-width: 640px) {
+  main {
+    padding: 22px 12px 48px;
+  }
+
+  .card {
+    padding: 14px;
+  }
+
+  .appHeaderInner {
+    padding: 10px 12px;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .navBar {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      'meta action'
+      'nav nav';
+    gap: 8px;
+    justify-content: initial;
+  }
+
+  .navBar > label {
+    grid-area: meta;
+    min-width: 0;
+  }
+
+  .navBar > .navGroup {
+    grid-area: nav;
+  }
+
+  .navBar > button {
+    grid-area: action;
+    justify-self: end;
+  }
+
+  .navGroup {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    max-width: 100%;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .navGroup::-webkit-scrollbar {
+    display: none;
+  }
+
+  .navItem,
+  .navPill {
+    flex: 0 0 auto;
+  }
+
+  .navBar label .control {
+    width: 100%;
+    max-width: 220px;
+  }
+}
+
+@media (max-width: 420px) {
+  .navBar label span {
+    display: none;
+  }
+}
+
+@media (hover: none) {
+  .navItem,
+  .navPill {
+    min-height: 40px;
+    padding: 10px 12px;
+  }
+
+  .control {
+    min-height: 40px;
+    padding: 10px 12px;
+  }
+
+  .btnSm {
+    min-height: 40px;
+  }
 }
